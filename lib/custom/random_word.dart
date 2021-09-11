@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'dart:math';
+
+part of 'my_custom.dart';
 //编写第一个Flutter应用，https://flutterchina.club/get-started/codelab/
 
 class RandomWords extends StatefulWidget {
@@ -14,6 +14,7 @@ class RandomState extends State<RandomWords> {
   final _saved = <int>{};
   final _biggerFont = const TextStyle(fontSize: 18);
   final _rng = Random();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -43,6 +43,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.15.0"
+  crypto:
+    dependency: transitive
+    description:
+      name: crypto
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "3.0.1"
   cupertino_icons:
     dependency: "direct main"
     description:
@@ -240,13 +247,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.1.0"
-  websocket:
+  web_socket_channel:
     dependency: "direct main"
     description:
-      name: websocket
+      name: web_socket_channel
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.0.5"
+    version: "2.1.0"
   win32:
     dependency: transitive
     description:
