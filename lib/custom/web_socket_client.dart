@@ -17,8 +17,12 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
   late WebSocketChannel channel ;//= IOWebSocketChannel.connect('ws://192.168.10.235:7001');
   final  _controllerSessionId =  TextEditingController();
   final _controllerUserId = TextEditingController();
-  late RTCPeerConnection _peerConnection;
-  final List<RTCVideoRenderer> _remoteRenderers = [];
+  late RTCPeerConnection _peerConnectionSub;
+  late RTCPeerConnection _peerConnectionPub;
+  //late MediaStream localStream;
+  //late RTCRtpTransceiver transceiverPub;
+  //final List<RTCVideoRenderer> _remoteRenderers = [];
+  //late MediaStreamTrack _remoteTrack;
   @override
   Widget build(BuildContext context) {
     // TODO: implement build
@@ -45,19 +49,23 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
             ElevatedButton(
               onPressed: (){
                 log('click pttBegin');
+                channel.sink.add(const JsonEncoder().convert({
+                  'event':'pttBegin',
+                }));
               },
               child: const Text('pttBegin'),
+
             ),
             ElevatedButton(
-              onPressed: _clickClose,
+              onPressed: () {
+                log('click pttEnd');
+                pttEndHandle();
+              },
               child: const Text('pttEnd'),
 
             ),
             ElevatedButton(
-              onPressed: (){
-                log('click close');
-                channel.sink.close();
-              },
+              onPressed: _clickClose,
               child: const Text('close'),
               style: const ButtonStyle(alignment: Alignment.center),
             ),
@@ -68,21 +76,36 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       )
     );
   }
-  void _clickClose(){
-    debugPrint('click pttEnd');
+  void _clickClose() async{
+    debugPrint('click Close()');
     channel.sink.close();
-    _peerConnection.close();
-    _remoteRenderers.map((element) {element.dispose() ;});
+
+    // List<RTCRtpReceiver> receivers = await _peerConnection.getReceivers();
+    // for (var element in receivers) {
+    //   element.track?.stop();
+    // }
+
+    // List<MediaStream?> streams =  _peerConnection.getRemoteStreams();
+    // for (var element in streams) {
+    //   element?.removeTrack(_remoteTrack);
+    // }
+
+    _peerConnectionSub.close();
+    _peerConnectionPub.close();
+   // _peerConnection.dispose();
+    //_remoteRenderers.map((element) {element.dispose() ;});
   }
   void _clickConnect() async{
     debugPrint('click Connect');
     channel = IOWebSocketChannel.connect('ws://192.168.10.235:7001/ws');
+    //channel = IOWebSocketChannel.connect('ws://124.207.164.210:8431/ws');
     channel.stream.listen((message)  {  _parseMsg(message.toString());},
       onError: (e){log('err:'+e.toString());},
       onDone: (){log('webSocket done');},
       //cancelOnError: false,
     );
-    await _connectPC();
+    await _readySub();
+    await _readyPub();
     //send join
     channel.sink.add(const JsonEncoder().convert({
       'event':'join',
@@ -92,19 +115,27 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       })
     }));
   }
-  Future<void> _connectPC() async {
+  Future<void> _readySub() async {
     var configuration = <String, dynamic>{
       'iceServers': [
-        {'url': 'stun:stun.l.google.com:19302'},
-      ],
+        {
+          'urls': "turn:124.207.164.210:8442",
+          'username':"pion",
+          'credential':"ion",
+          'credentialType':"password",
+        }
+      ]
+      // 'iceServers': [
+      //   {'url': 'stun:stun.l.google.com:19302'},
+      // ],
       // 'sdpSemantics': sdpSemantics
     };
-    _peerConnection = await createPeerConnection(configuration,{});
-    _peerConnection.onRenegotiationNeeded = (){
-      debugPrint('onRenegotiationNeeded');
+    _peerConnectionSub = await createPeerConnection(configuration,{});
+    _peerConnectionSub.onRenegotiationNeeded = (){
+      debugPrint('sub.onRenegotiationNeeded');
     };
-    _peerConnection.onIceCandidate = (candidate){
-      debugPrint("My Candidate -->");
+    _peerConnectionSub.onIceCandidate = (candidate){
+      debugPrint("sub. My Candidate -->");
 
       var data = const JsonEncoder().convert({
         'event':'candidate',
@@ -115,12 +146,13 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
           'candidate': candidate.candidate,
         })
       });
-      debugPrint(data);
+      debugPrint('sub. '+data);
       channel.sink.add(data);
     };
-    _peerConnection.onTrack = (event) async{
-      debugPrint("onTrack");
+    _peerConnectionSub.onTrack = (event) async{
+      debugPrint("sub.onTrack");
       if(event.track.kind=='audio' && event.streams.isNotEmpty){
+       // _remoteTrack = event.track;
         //var render = RTCVideoRenderer();
         //await render.initialize();
       // render.srcObject = event.streams[0];
@@ -130,20 +162,128 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
         // });
       }
     };
+    _peerConnectionSub.onAddTrack = (stream,track){
+      debugPrint('sub.onAddTrack');
+      track.setVolume(0.0);
+
+    };
+    _peerConnectionSub.onAddStream = (stream){
+      debugPrint('sub.onAddStream');
+    };
+    _peerConnectionSub.onTrack = (track){
+      debugPrint('sub.onTrack');
+    };
+    _peerConnectionSub.onRemoveTrack = (stream,track){
+      debugPrint('sub.onRemoveTrack');
+    };
+    _peerConnectionSub.onRemoveStream = (stream){
+      debugPrint('sub.onRemoveStream');
+    };
+  }
+  Future<void> _readyPub() async {
+    var configuration = <String, dynamic>{
+      'iceServers': [
+        {
+          'urls': "turn:124.207.164.210:8442",
+          'username':"pion",
+          'credential':"ion",
+          'credentialType':"password",
+        }
+      ],
+      // 'iceServers': [
+      //   {'url': 'stun:stun.l.google.com:19302'},
+      // ],
+      'sdpSemantics': 'unified-plan'
+    };
+    _peerConnectionPub = await createPeerConnection(configuration,{});
+    _peerConnectionPub.onRenegotiationNeeded = () {
+      debugPrint('pub.onRenegotiationNeeded');
+      _negotiationPub();
+    };
+    _peerConnectionPub.onIceCandidate = (candidate){
+      debugPrint("pub. My Candidate -->");
+
+      var data = const JsonEncoder().convert({
+        'event':'candidate',
+        'target':'pub',
+        'data':const JsonEncoder().convert({
+          'sdpMLineIndex': candidate.sdpMlineIndex,
+          'sdpMid': candidate.sdpMid,
+          'candidate': candidate.candidate,
+        })
+      });
+      debugPrint("pub. "+data);
+      channel.sink.add(data);
+    };
+    // _peerConnectionPub.onTrack = (event) async{
+    //   debugPrint("onTrack");
+    //   if(event.track.kind=='audio' && event.streams.isNotEmpty){
+    //     // _remoteTrack = event.track;
+    //     //var render = RTCVideoRenderer();
+    //     //await render.initialize();
+    //     // render.srcObject = event.streams[0];
+    //     // _remoteRenderers.add(render);
+    //     // setState(() {
+    //     //
+    //     // });
+    //   }
+    // };
+    _peerConnectionPub.onAddTrack = (stream,track){
+      debugPrint('pub.onAddTrack');
+      //track.setVolume(0.0);
+
+    };
+    _peerConnectionPub.onAddStream = (stream){
+      debugPrint('pub.onAddStream');
+    };
+    _peerConnectionPub.onTrack = (track){
+      debugPrint('pub.onTrack');
+    };
+    _peerConnectionPub.onRemoveTrack = (stream,track){
+      debugPrint('pub.onRemoveTrack');
+    };
+    _peerConnectionPub.onRemoveStream = (stream){
+      debugPrint('pub.onRemoveStream');
+    };
+
+    var localStream = await navigator.mediaDevices.getUserMedia({
+      'audio':true,
+      'video':false
+    });
+
+    try{
+      debugPrint('pub. addTransceiver');
+      // await _peerConnectionPub.addTransceiver(
+      //  // track: localStream.getAudioTracks()[0],
+      //   kind:RTCRtpMediaType.RTCRtpMediaTypeAudio,
+      //   init: RTCRtpTransceiverInit(
+      //     direction: TransceiverDirection.SendOnly,
+      //    // streams: [localStream]
+      //   )
+      // );
+
+    }catch(e){
+      debugPrint(e.toString());
+    }
+
+    // var transceiverPub = await _peerConnectionPub.addTransceiver(
+    //     kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+    //     init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendOnly )
+    // );
+
   }
   void _parseMsg(String raw) async{
 
     Map<String, dynamic> msg = jsonDecode(raw);
 
-    //log(msg.toString());
     switch(msg['event']){
       case 'offer':
-        debugPrint('receive offer');
-        //log(msg['data']);
+        debugPrint('sub. receive offer');
+
         Map<String,dynamic> offer = jsonDecode(msg['data']);
-        await _peerConnection.setRemoteDescription(RTCSessionDescription(offer['sdp'], offer['type']));
-        RTCSessionDescription answer = await _peerConnection.createAnswer({});
-        await _peerConnection.setLocalDescription(answer);
+        await _peerConnectionSub.setRemoteDescription(RTCSessionDescription(offer['sdp'], offer['type']));
+        RTCSessionDescription answer = await _peerConnectionSub.createAnswer({});
+        await _peerConnectionSub.setLocalDescription(answer);
         //send answer
         channel.sink.add(const JsonEncoder().convert({
           'event':'answer',
@@ -152,47 +292,133 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
         }));
         break;
       case 'answer':
-        debugPrint('receive answer');
+        debugPrint('pub. receive answer');
+        Map<String,dynamic> answer = jsonDecode(msg['data']);
+        await _peerConnectionPub.setRemoteDescription(RTCSessionDescription(answer['sdp'], answer['type']));
 
         break;
       case 'candidate':
         debugPrint("receive candidate --> ${msg['target']}");
+        Map<String,dynamic> parsed = jsonDecode(msg['data']);
+        log(parsed.toString());
         if(msg['target'] == 'sub'){
-          Map<String,dynamic> parsed = jsonDecode(msg['data']);
-          log(parsed.toString());
-
           try{
-            RTCSessionDescription? remoteDSP = await _peerConnection.getRemoteDescription();
+            //RTCSessionDescription? remoteDSP = await _peerConnectionSub.getRemoteDescription();
             // if( remoteDSP == null){
             //   debugPrint('getRemoteDescription is null');
             //   return;
             // }
-            debugPrint(parsed['candidate']);
+           // debugPrint(parsed['candidate']);
             //参数是string类型的不要写null
-            _peerConnection.addCandidate(RTCIceCandidate(parsed['candidate'], '', 0));
+            debugPrint('sub addCandidate');
+            _peerConnectionSub.addCandidate(RTCIceCandidate(parsed['candidate'], '', 0));
           }on Exception catch(e){
-            debugPrint(e.toString());
+            debugPrint('sub.addCandidate '+e.toString());
           }
-
-
+        }else if(msg['target'] == 'pub'){
+          try{
+            //debugPrint(parsed['candidate']);
+            //参数是string类型的不要写null
+            debugPrint('pub addCandidate');
+            _peerConnectionPub.addCandidate(RTCIceCandidate(parsed['candidate'], '', 0));
+          }on Exception catch(e){
+            debugPrint('pub.addCandidate '+ e.toString());
+          }
         }
         break;
       case 'join':
         break;
       case 'pttBegin':
+        if(msg['data'] == "ok"){
+          debugPrint('pttBegin is ok');
+        }else{
+          debugPrint('pttBegin is fail');
+          return;
+        }
+        pttBeginHandle();
+
         break;
       case 'pttEnd':
+        if(msg['data'] == "ok"){
+          debugPrint('pttEnd is ok');
+        }else{
+          debugPrint('pttEnd is fail');
+        }
         break;
       case 'err':
-        log(msg['data']);
+        debugPrint(msg['data']);
         break;
       default:
-        log('unknow switch');
+        debugPrint('unknown event');
         break;
     }
   }
-  void myPrint(){
+  void pttBeginHandle() async{
 
+    var senders = await _peerConnectionPub.getSenders();
+    debugPrint('before pub. senders len  = '+senders.length.toString());
+
+    var localStream = await navigator.mediaDevices.getUserMedia({
+      'audio':true,
+      'video':false
+    });
+    var tracks = localStream.getAudioTracks();
+    debugPrint('audio tracks len = '+tracks.length.toString());
+
+    if(senders.isNotEmpty){
+      //senders[0].track!.setMicrophoneMute(false);
+      // senders[0].track!.enabled = true;
+
+       var trans = await _peerConnectionPub.getTransceivers();
+       await trans[0].setDirection(TransceiverDirection.SendRecv);
+       await senders[0].replaceTrack(tracks[0]);
+    }else{
+      try{
+        debugPrint('pub.addTrack');
+        var sender = await _peerConnectionPub.addTrack(tracks[0],localStream);
+      } catch(e){
+        debugPrint('Pub.addTrack err'+e.toString());
+      }
+    }
+
+
+    senders = await _peerConnectionPub.getSenders();
+    debugPrint('after pub. senders len = '+senders.length.toString());
+  }
+  void pttEndHandle() async{
+    // var senders = await _peerConnectionPub.getSenders();
+    // for (var element in senders) {
+    //   if(element.track!=null){
+    //     _peerConnectionPub.removeTrack(element);
+    //     //element.track!.enableSpeakerphone(false);
+    //     //element.track!.setMicrophoneMute(true);
+    //     //element.track!.enabled = false;
+    //
+    //   }
+    // }
+    var trans = await _peerConnectionPub.getTransceivers();
+    var direction = await trans[0].getCurrentDirection();
+    debugPrint('===== CurrentDirection = $direction');
+    await trans[0].setDirection(TransceiverDirection.RecvOnly);
+    channel.sink.add(const JsonEncoder().convert({
+      'event':'pttEnd',
+    }));
+  }
+  void _negotiationPub() async{
+    RTCSessionDescription offer = await _peerConnectionPub.createOffer({
+      //'voiceActivityDetection':true,
+      //'iceRestart':true
+    });
+    await _peerConnectionPub.setLocalDescription(offer);
+
+    var dataOffer = const JsonEncoder().convert({
+      'event':'offer',
+      'target':'pub',
+      'data': const JsonEncoder().convert(offer.toMap())
+    });
+    debugPrint('pub send offer len = ${dataOffer.length}');
+    //debugPrint('pub send offer => $dataOffer');
+    channel.sink.add(dataOffer);
   }
   @override
   void dispose(){
@@ -200,6 +426,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     super.dispose();
     _controllerSessionId.dispose();
     _controllerUserId.dispose();
-    channel.sink.close();
+    _clickClose();
+   // channel.sink.close();
   }
 }
