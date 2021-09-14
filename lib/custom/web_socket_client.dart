@@ -15,14 +15,18 @@ class MyWebSocketClient extends StatefulWidget{
 class MyWebSocketClientState extends State<MyWebSocketClient>{
 
   late WebSocketChannel channel ;//= IOWebSocketChannel.connect('ws://192.168.10.235:7001');
-  final  _controllerSessionId =  TextEditingController();
-  final _controllerUserId = TextEditingController();
+  final  _controllerSessionId =  TextEditingController(text:'1');
+  final _controllerUserId = TextEditingController(text: '666');
+  final _controllerWS = TextEditingController(text: 'ws://192.168.8.107:7001/ws');
+  final _controllerLog = TextEditingController(text: 'log =>');
   late RTCPeerConnection _peerConnectionSub;
   late RTCPeerConnection _peerConnectionPub;
+  var count = 1;
   //late MediaStream localStream;
   //late RTCRtpTransceiver transceiverPub;
   //final List<RTCVideoRenderer> _remoteRenderers = [];
   //late MediaStreamTrack _remoteTrack;
+
   @override
   Widget build(BuildContext context) {
     // TODO: implement build
@@ -33,22 +37,28 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
+
             Form(child: TextFormField(
               controller: _controllerSessionId,
               decoration: const InputDecoration(labelText: 'session id'),
+             // onTap: (){_controllerLog.clear();},
             )),
             Form( child: TextFormField(
               controller: _controllerUserId,
               decoration: const InputDecoration(labelText: 'user id'),
-            ),
-            ),
+            ),),
+            Form( child: TextFormField(
+              controller: _controllerWS,
+              decoration: const InputDecoration(labelText: 'WS address'),
+            ),),
+
             ElevatedButton(
               onPressed:  _clickConnect,
               child: const Text('Connect'),
             ),
             ElevatedButton(
               onPressed: (){
-                log('click pttBegin');
+                _log('click pttBegin');
                 channel.sink.add(const JsonEncoder().convert({
                   'event':'pttBegin',
                 }));
@@ -58,7 +68,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
             ),
             ElevatedButton(
               onPressed: () {
-                log('click pttEnd');
+                _log('click pttEnd');
                 pttEndHandle();
               },
               child: const Text('pttEnd'),
@@ -69,15 +79,32 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
               child: const Text('close'),
               style: const ButtonStyle(alignment: Alignment.center),
             ),
+            TextField(
+              controller: _controllerLog,
+              readOnly: true,
+              maxLines: 10,
 
+            ),
           ],
 
         ),
       )
     );
   }
+  @override
+  void initState()  {
+    super.initState();
+    setState(() {
+      //_controllerUserId.text = 'iop';
+
+    });
+  }
+  void _log(String msg){
+    _controllerLog.text ='${count++}. '+ msg +'\n' + _controllerLog.text;
+    debugPrint(msg);
+  }
   void _clickClose() async{
-    debugPrint('click Close()');
+    _log('click Close()');
     channel.sink.close();
 
     // List<RTCRtpReceiver> receivers = await _peerConnection.getReceivers();
@@ -96,8 +123,10 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     //_remoteRenderers.map((element) {element.dispose() ;});
   }
   void _clickConnect() async{
-    debugPrint('click Connect');
-    channel = IOWebSocketChannel.connect('ws://192.168.10.235:7001/ws');
+    _controllerLog.clear();
+    count = 0;
+    _log('click Connect');
+    channel = IOWebSocketChannel.connect(_controllerWS.text);
     //channel = IOWebSocketChannel.connect('ws://124.207.164.210:8431/ws');
     channel.stream.listen((message)  {  _parseMsg(message.toString());},
       onError: (e){log('err:'+e.toString());},
@@ -110,8 +139,8 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     channel.sink.add(const JsonEncoder().convert({
       'event':'join',
       'data': const JsonEncoder().convert({
-        'sid':'1',
-        'uid':'321'
+        'sid':_controllerSessionId.text,
+        'uid':_controllerUserId.text
       })
     }));
   }
@@ -168,16 +197,19 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
 
     };
     _peerConnectionSub.onAddStream = (stream){
-      debugPrint('sub.onAddStream');
+      _log('sub.onAddStream');
     };
     _peerConnectionSub.onTrack = (track){
-      debugPrint('sub.onTrack');
+      _log('sub.onTrack');
     };
     _peerConnectionSub.onRemoveTrack = (stream,track){
-      debugPrint('sub.onRemoveTrack');
+      _log('sub.onRemoveTrack');
     };
     _peerConnectionSub.onRemoveStream = (stream){
-      debugPrint('sub.onRemoveStream');
+      _log('sub.onRemoveStream');
+    };
+    _peerConnectionSub.onConnectionState = (state){
+      _log('sub.'+state.toString());
     };
   }
   Future<void> _readyPub() async {
@@ -229,42 +261,44 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     //   }
     // };
     _peerConnectionPub.onAddTrack = (stream,track){
-      debugPrint('pub.onAddTrack');
+      _log('pub.onAddTrack');
       //track.setVolume(0.0);
 
     };
     _peerConnectionPub.onAddStream = (stream){
-      debugPrint('pub.onAddStream');
+      _log('pub.onAddStream');
     };
     _peerConnectionPub.onTrack = (track){
-      debugPrint('pub.onTrack');
+      _log('pub.onTrack');
     };
     _peerConnectionPub.onRemoveTrack = (stream,track){
-      debugPrint('pub.onRemoveTrack');
+      _log('pub.onRemoveTrack');
     };
     _peerConnectionPub.onRemoveStream = (stream){
-      debugPrint('pub.onRemoveStream');
+      _log('pub.onRemoveStream');
     };
-
+    _peerConnectionPub.onConnectionState = (state){
+      _log('pub.'+state.toString());
+    };
     var localStream = await navigator.mediaDevices.getUserMedia({
       'audio':true,
       'video':false
     });
 
-    try{
-      debugPrint('pub. addTransceiver');
-      // await _peerConnectionPub.addTransceiver(
-      //  // track: localStream.getAudioTracks()[0],
-      //   kind:RTCRtpMediaType.RTCRtpMediaTypeAudio,
-      //   init: RTCRtpTransceiverInit(
-      //     direction: TransceiverDirection.SendOnly,
-      //    // streams: [localStream]
-      //   )
-      // );
-
-    }catch(e){
-      debugPrint(e.toString());
-    }
+    // try{
+    //   debugPrint('pub. addTransceiver');
+    //   // await _peerConnectionPub.addTransceiver(
+    //   //  // track: localStream.getAudioTracks()[0],
+    //   //   kind:RTCRtpMediaType.RTCRtpMediaTypeAudio,
+    //   //   init: RTCRtpTransceiverInit(
+    //   //     direction: TransceiverDirection.SendOnly,
+    //   //    // streams: [localStream]
+    //   //   )
+    //   // );
+    //
+    // }catch(e){
+    //   debugPrint(e.toString());
+    // }
 
     // var transceiverPub = await _peerConnectionPub.addTransceiver(
     //     kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
@@ -278,7 +312,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
 
     switch(msg['event']){
       case 'offer':
-        debugPrint('sub. receive offer');
+        _log('sub. receive offer');
 
         Map<String,dynamic> offer = jsonDecode(msg['data']);
         await _peerConnectionSub.setRemoteDescription(RTCSessionDescription(offer['sdp'], offer['type']));
@@ -292,7 +326,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
         }));
         break;
       case 'answer':
-        debugPrint('pub. receive answer');
+        _log('pub. receive answer');
         Map<String,dynamic> answer = jsonDecode(msg['data']);
         await _peerConnectionPub.setRemoteDescription(RTCSessionDescription(answer['sdp'], answer['type']));
 
@@ -330,9 +364,9 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
         break;
       case 'pttBegin':
         if(msg['data'] == "ok"){
-          debugPrint('pttBegin is ok');
+          _log('pttBegin is ok');
         }else{
-          debugPrint('pttBegin is fail');
+          _log('pttBegin is fail');
           return;
         }
         pttBeginHandle();
@@ -340,16 +374,16 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
         break;
       case 'pttEnd':
         if(msg['data'] == "ok"){
-          debugPrint('pttEnd is ok');
+          _log('pttEnd is ok');
         }else{
-          debugPrint('pttEnd is fail');
+          _log('pttEnd is fail');
         }
         break;
       case 'err':
-        debugPrint(msg['data']);
+        _log('err: '+msg['data']);
         break;
       default:
-        debugPrint('unknown event');
+        _log('unknown event');
         break;
     }
   }
@@ -374,7 +408,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
        await senders[0].replaceTrack(tracks[0]);
     }else{
       try{
-        debugPrint('pub.addTrack');
+        _log('pub.addTrack');
         var sender = await _peerConnectionPub.addTrack(tracks[0],localStream);
       } catch(e){
         debugPrint('Pub.addTrack err'+e.toString());
@@ -416,7 +450,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       'target':'pub',
       'data': const JsonEncoder().convert(offer.toMap())
     });
-    debugPrint('pub send offer len = ${dataOffer.length}');
+    _log('pub send offer len = ${dataOffer.length}');
     //debugPrint('pub send offer => $dataOffer');
     channel.sink.add(dataOffer);
   }
@@ -426,6 +460,8 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     super.dispose();
     _controllerSessionId.dispose();
     _controllerUserId.dispose();
+    _controllerWS.dispose();
+    _controllerLog.dispose();
     _clickClose();
    // channel.sink.close();
   }
