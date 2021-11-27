@@ -17,11 +17,14 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
   late WebSocketChannel channel ;//= IOWebSocketChannel.connect('ws://192.168.10.235:7001');
   final  _controllerSessionId =  TextEditingController(text:'1');
   final _controllerUserId = TextEditingController(text: '666');
-  final _controllerWS = TextEditingController(text: 'ws://192.168.8.107:7001/ws');
+  //final _controllerWS = TextEditingController(text: 'ws://106.54.215.136:7001/ws');
+  final _controllerWS = TextEditingController(text: 'ws://192.168.10.236:7001/ws');
   final _controllerLog = TextEditingController(text: 'log =>');
   late RTCPeerConnection _peerConnectionSub;
   late RTCPeerConnection _peerConnectionPub;
   var count = 1;
+  //var ptt_time = DateTime.now();
+
   //late MediaStream localStream;
   //late RTCRtpTransceiver transceiverPub;
   //final List<RTCVideoRenderer> _remoteRenderers = [];
@@ -59,6 +62,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
             ElevatedButton(
               onPressed: (){
                 _log('click pttBegin');
+
                 channel.sink.add(const JsonEncoder().convert({
                   'event':'pttBegin',
                 }));
@@ -148,7 +152,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     var configuration = <String, dynamic>{
       'iceServers': [
         {
-          'urls': "turn:124.207.164.210:8442",
+          'urls': "turn:106.54.215.136:3478",
           'username':"pion",
           'credential':"ion",
           'credentialType':"password",
@@ -181,6 +185,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     _peerConnectionSub.onTrack = (event) async{
       debugPrint("sub.onTrack");
       if(event.track.kind=='audio' && event.streams.isNotEmpty){
+       // event.track.stop();
        // _remoteTrack = event.track;
         //var render = RTCVideoRenderer();
         //await render.initialize();
@@ -216,7 +221,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     var configuration = <String, dynamic>{
       'iceServers': [
         {
-          'urls': "turn:124.207.164.210:8442",
+          'urls': "turn:106.54.215.136:3478",
           'username':"pion",
           'credential':"ion",
           'credentialType':"password",
@@ -388,7 +393,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     }
   }
   void pttBeginHandle() async{
-
+    //ptt_time = DateTime.now();
     var senders = await _peerConnectionPub.getSenders();
     debugPrint('before pub. senders len  = '+senders.length.toString());
 
@@ -430,6 +435,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     //
     //   }
     // }
+
     var trans = await _peerConnectionPub.getTransceivers();
     var direction = await trans[0].getCurrentDirection();
     debugPrint('===== CurrentDirection = $direction');
