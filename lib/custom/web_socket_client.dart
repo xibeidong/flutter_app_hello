@@ -19,6 +19,8 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
   final _controllerUserId = TextEditingController(text: '666');
   //final _controllerWS = TextEditingController(text: 'ws://106.54.215.136:7001/ws');
   final _controllerWS = TextEditingController(text: 'ws://192.168.10.236:7001/ws');
+  final _controllerTurn = TextEditingController(text: 'turn:192.168.7.202:1478');
+
   final _controllerLog = TextEditingController(text: 'log =>');
   late RTCPeerConnection _peerConnectionSub;
   late RTCPeerConnection _peerConnectionPub;
@@ -52,6 +54,10 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
             ),),
             Form( child: TextFormField(
               controller: _controllerWS,
+              decoration: const InputDecoration(labelText: 'WS address'),
+            ),),
+            Form( child: TextFormField(
+              controller: _controllerTurn,
               decoration: const InputDecoration(labelText: 'WS address'),
             ),),
 
@@ -152,12 +158,13 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     var configuration = <String, dynamic>{
       'iceServers': [
         {
-          'urls': "turn:106.54.215.136:3478",
+          'urls': _controllerTurn.text,
           'username':"pion",
           'credential':"ion",
           'credentialType':"password",
-        }
-      ]
+        },
+      ],
+      'sdpSemantics':'unified-plan'
       // 'iceServers': [
       //   {'url': 'stun:stun.l.google.com:19302'},
       // ],
@@ -167,6 +174,8 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     _peerConnectionSub.onRenegotiationNeeded = (){
       debugPrint('sub.onRenegotiationNeeded');
     };
+    //debugPrint("sub. My getConfiguration -->" + _peerConnectionSub.getConfiguration.toString());
+
     _peerConnectionSub.onIceCandidate = (candidate){
       debugPrint("sub. My Candidate -->");
 
@@ -183,7 +192,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       channel.sink.add(data);
     };
     _peerConnectionSub.onTrack = (event) async{
-      debugPrint("sub.onTrack");
+      debugPrint("sub.onTrack = " + event.track.id.toString());
       if(event.track.kind=='audio' && event.streams.isNotEmpty){
        // event.track.stop();
        // _remoteTrack = event.track;
@@ -204,8 +213,8 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     _peerConnectionSub.onAddStream = (stream){
       _log('sub.onAddStream');
     };
-    _peerConnectionSub.onTrack = (track){
-      _log('sub.onTrack');
+    _peerConnectionSub.onTrack = (event){
+      _log('sub.onTrack = '+event.track.id.toString());
     };
     _peerConnectionSub.onRemoveTrack = (stream,track){
       _log('sub.onRemoveTrack');
@@ -221,7 +230,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     var configuration = <String, dynamic>{
       'iceServers': [
         {
-          'urls': "turn:106.54.215.136:3478",
+          'urls': _controllerTurn.text,
           'username':"pion",
           'credential':"ion",
           'credentialType':"password",
@@ -467,6 +476,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     _controllerSessionId.dispose();
     _controllerUserId.dispose();
     _controllerWS.dispose();
+    _controllerTurn.dispose();
     _controllerLog.dispose();
     _clickClose();
    // channel.sink.close();
