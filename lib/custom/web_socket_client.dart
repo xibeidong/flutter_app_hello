@@ -19,12 +19,14 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
   final _controllerUserId = TextEditingController(text: '666');
   //final _controllerWS = TextEditingController(text: 'ws://106.54.215.136:7001/ws');
   final _controllerWS = TextEditingController(text: 'ws://192.168.10.236:7001/ws');
-  final _controllerTurn = TextEditingController(text: 'turn:192.168.7.202:1478');
+  final _controllerTurn = TextEditingController(text: 'turn:192.168.10.236:1478');
 
   final _controllerLog = TextEditingController(text: 'log =>');
-  late RTCPeerConnection _peerConnectionSub;
-  late RTCPeerConnection _peerConnectionPub;
+  //late RTCPeerConnection _peerConnectionSub;
+  late RTCPeerConnection _peerConnection;
   var count = 1;
+  var _trackNull;
+
   //var ptt_time = DateTime.now();
 
   //late MediaStream localStream;
@@ -127,8 +129,8 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     //   element?.removeTrack(_remoteTrack);
     // }
 
-    _peerConnectionSub.close();
-    _peerConnectionPub.close();
+    //_peerConnectionSub.close();
+    _peerConnection.close();
    // _peerConnection.dispose();
     //_remoteRenderers.map((element) {element.dispose() ;});
   }
@@ -143,8 +145,8 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       onDone: (){log('webSocket done');},
       //cancelOnError: false,
     );
-    await _readySub();
-    await _readyPub();
+    //await _readySub();
+    await _readyPeer();
     //send join
     channel.sink.add(const JsonEncoder().convert({
       'event':'join',
@@ -154,79 +156,79 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       })
     }));
   }
-  Future<void> _readySub() async {
-    var configuration = <String, dynamic>{
-      'iceServers': [
-        {
-          'urls': _controllerTurn.text,
-          'username':"pion",
-          'credential':"ion",
-          'credentialType':"password",
-        },
-      ],
-      'sdpSemantics':'unified-plan'
-      // 'iceServers': [
-      //   {'url': 'stun:stun.l.google.com:19302'},
-      // ],
-      // 'sdpSemantics': sdpSemantics
-    };
-    _peerConnectionSub = await createPeerConnection(configuration,{});
-    _peerConnectionSub.onRenegotiationNeeded = (){
-      debugPrint('sub.onRenegotiationNeeded');
-    };
-    //debugPrint("sub. My getConfiguration -->" + _peerConnectionSub.getConfiguration.toString());
-
-    _peerConnectionSub.onIceCandidate = (candidate){
-      debugPrint("sub. My Candidate -->");
-
-      var data = const JsonEncoder().convert({
-        'event':'candidate',
-        'target':'sub',
-        'data':const JsonEncoder().convert({
-          'sdpMLineIndex': candidate.sdpMlineIndex,
-          'sdpMid': candidate.sdpMid,
-          'candidate': candidate.candidate,
-        })
-      });
-      debugPrint('sub. '+data);
-      channel.sink.add(data);
-    };
-    _peerConnectionSub.onTrack = (event) async{
-      debugPrint("sub.onTrack = " + event.track.id.toString());
-      if(event.track.kind=='audio' && event.streams.isNotEmpty){
-       // event.track.stop();
-       // _remoteTrack = event.track;
-        //var render = RTCVideoRenderer();
-        //await render.initialize();
-      // render.srcObject = event.streams[0];
-      // _remoteRenderers.add(render);
-        // setState(() {
-        //
-        // });
-      }
-    };
-    _peerConnectionSub.onAddTrack = (stream,track){
-      debugPrint('sub.onAddTrack');
-      track.setVolume(0.0);
-
-    };
-    _peerConnectionSub.onAddStream = (stream){
-      _log('sub.onAddStream');
-    };
-    _peerConnectionSub.onTrack = (event){
-      _log('sub.onTrack = '+event.track.id.toString());
-    };
-    _peerConnectionSub.onRemoveTrack = (stream,track){
-      _log('sub.onRemoveTrack');
-    };
-    _peerConnectionSub.onRemoveStream = (stream){
-      _log('sub.onRemoveStream');
-    };
-    _peerConnectionSub.onConnectionState = (state){
-      _log('sub.'+state.toString());
-    };
-  }
-  Future<void> _readyPub() async {
+  // Future<void> _readySub() async {
+  //   var configuration = <String, dynamic>{
+  //     'iceServers': [
+  //       {
+  //         'urls': _controllerTurn.text,
+  //         'username':"pion",
+  //         'credential':"ion",
+  //         'credentialType':"password",
+  //       },
+  //     ],
+  //     'sdpSemantics':'unified-plan'
+  //     // 'iceServers': [
+  //     //   {'url': 'stun:stun.l.google.com:19302'},
+  //     // ],
+  //     // 'sdpSemantics': sdpSemantics
+  //   };
+  //   _peerConnectionSub = await createPeerConnection(configuration,{});
+  //   _peerConnectionSub.onRenegotiationNeeded = (){
+  //     debugPrint('sub.onRenegotiationNeeded');
+  //   };
+  //   //debugPrint("sub. My getConfiguration -->" + _peerConnectionSub.getConfiguration.toString());
+  //
+  //   _peerConnectionSub.onIceCandidate = (candidate){
+  //     debugPrint("sub. My Candidate -->");
+  //
+  //     var data = const JsonEncoder().convert({
+  //       'event':'candidate',
+  //       'target':'sub',
+  //       'data':const JsonEncoder().convert({
+  //         'sdpMLineIndex': candidate.sdpMlineIndex,
+  //         'sdpMid': candidate.sdpMid,
+  //         'candidate': candidate.candidate,
+  //       })
+  //     });
+  //     debugPrint('sub. '+data);
+  //     channel.sink.add(data);
+  //   };
+  //   _peerConnectionSub.onTrack = (event) async{
+  //     debugPrint("sub.onTrack = " + event.track.id.toString());
+  //     if(event.track.kind=='audio' && event.streams.isNotEmpty){
+  //      // event.track.stop();
+  //      // _remoteTrack = event.track;
+  //       //var render = RTCVideoRenderer();
+  //       //await render.initialize();
+  //     // render.srcObject = event.streams[0];
+  //     // _remoteRenderers.add(render);
+  //       // setState(() {
+  //       //
+  //       // });
+  //     }
+  //   };
+  //   _peerConnectionSub.onAddTrack = (stream,track){
+  //     debugPrint('sub.onAddTrack');
+  //     track.setVolume(0.0);
+  //
+  //   };
+  //   _peerConnectionSub.onAddStream = (stream){
+  //     _log('sub.onAddStream');
+  //   };
+  //   _peerConnectionSub.onTrack = (event){
+  //     _log('sub.onTrack = '+event.track.id.toString());
+  //   };
+  //   _peerConnectionSub.onRemoveTrack = (stream,track){
+  //     _log('sub.onRemoveTrack');
+  //   };
+  //   _peerConnectionSub.onRemoveStream = (stream){
+  //     _log('sub.onRemoveStream');
+  //   };
+  //   _peerConnectionSub.onConnectionState = (state){
+  //     _log('sub.'+state.toString());
+  //   };
+  // }
+  Future<void> _readyPeer() async {
     var configuration = <String, dynamic>{
       'iceServers': [
         {
@@ -240,25 +242,29 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       //   {'url': 'stun:stun.l.google.com:19302'},
       // ],
       'sdpSemantics': 'unified-plan'
+      //'sdpSemantics': 'plan-b'
     };
-    _peerConnectionPub = await createPeerConnection(configuration,{});
-    _peerConnectionPub.onRenegotiationNeeded = () {
-      debugPrint('pub.onRenegotiationNeeded');
-      _negotiationPub();
+
+
+    _peerConnection = await createPeerConnection(configuration,{});
+
+    _peerConnection.onRenegotiationNeeded = () {
+      debugPrint('peer.onRenegotiationNeeded');
+      _negotiation();
     };
-    _peerConnectionPub.onIceCandidate = (candidate){
-      debugPrint("pub. My Candidate -->");
+    _peerConnection.onIceCandidate = (candidate){
+      debugPrint("peer. My Candidate -->");
 
       var data = const JsonEncoder().convert({
         'event':'candidate',
-        'target':'pub',
+        'target':'',
         'data':const JsonEncoder().convert({
           'sdpMLineIndex': candidate.sdpMlineIndex,
           'sdpMid': candidate.sdpMid,
           'candidate': candidate.candidate,
         })
       });
-      debugPrint("pub. "+data);
+      debugPrint("peer. "+data);
       channel.sink.add(data);
     };
     // _peerConnectionPub.onTrack = (event) async{
@@ -274,30 +280,40 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     //     // });
     //   }
     // };
-    _peerConnectionPub.onAddTrack = (stream,track){
-      _log('pub.onAddTrack');
+    _peerConnection.onAddTrack = (stream,track){
+      _log('peer.onAddTrack');
       //track.setVolume(0.0);
 
     };
-    _peerConnectionPub.onAddStream = (stream){
-      _log('pub.onAddStream');
+    _peerConnection.onAddStream = (stream){
+      _log('peer.onAddStream');
     };
-    _peerConnectionPub.onTrack = (track){
-      _log('pub.onTrack');
+    _peerConnection.onTrack = (track){
+      _log('peer.onTrack');
     };
-    _peerConnectionPub.onRemoveTrack = (stream,track){
-      _log('pub.onRemoveTrack');
+    _peerConnection.onRemoveTrack = (stream,track){
+      _log('peer.onRemoveTrack');
     };
-    _peerConnectionPub.onRemoveStream = (stream){
-      _log('pub.onRemoveStream');
+    _peerConnection.onRemoveStream = (stream){
+      _log('peer.onRemoveStream');
     };
-    _peerConnectionPub.onConnectionState = (state){
-      _log('pub.'+state.toString());
+    _peerConnection.onConnectionState = (state){
+      _log('peer.'+state.toString());
     };
-    var localStream = await navigator.mediaDevices.getUserMedia({
-      'audio':true,
-      'video':false
-    });
+
+     _peerConnection.addTransceiver(
+        kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
+    );
+     _peerConnection.addTransceiver(
+        kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
+    );
+     _peerConnection.addTransceiver(
+        kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
+    );
+
 
     // try{
     //   debugPrint('pub. addTransceiver');
@@ -314,64 +330,58 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     //   debugPrint(e.toString());
     // }
 
-    // var transceiverPub = await _peerConnectionPub.addTransceiver(
-    //     kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
-    //     init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendOnly )
-    // );
-
+    //  var localStream = await navigator.mediaDevices.getUserMedia({
+    //   'audio':true,
+    //   'video':false
+    // });
+    // //localStream.dispose()
+    // var tracks = localStream.getAudioTracks();
+    // _trackNull = tracks[0];
+    //
+    // //localStream.dispose();
+    // //(_trackNull as MediaStreamTrack).enabled=false;
+    // (_trackNull as MediaStreamTrack).stop();
   }
   void _parseMsg(String raw) async{
 
     Map<String, dynamic> msg = jsonDecode(raw);
 
     switch(msg['event']){
-      case 'offer':
-        _log('sub. receive offer');
-
-        Map<String,dynamic> offer = jsonDecode(msg['data']);
-        await _peerConnectionSub.setRemoteDescription(RTCSessionDescription(offer['sdp'], offer['type']));
-        RTCSessionDescription answer = await _peerConnectionSub.createAnswer({});
-        await _peerConnectionSub.setLocalDescription(answer);
-        //send answer
-        channel.sink.add(const JsonEncoder().convert({
-          'event':'answer',
-          'target':'sub',
-          'data': const JsonEncoder().convert(answer.toMap())
-        }));
-        break;
+      // case 'offer':
+      //   _log('sub. receive offer');
+      //
+      //   Map<String,dynamic> offer = jsonDecode(msg['data']);
+      //   await _peerConnectionSub.setRemoteDescription(RTCSessionDescription(offer['sdp'], offer['type']));
+      //   RTCSessionDescription answer = await _peerConnectionSub.createAnswer({});
+      //   await _peerConnectionSub.setLocalDescription(answer);
+      //   //send answer
+      //   channel.sink.add(const JsonEncoder().convert({
+      //     'event':'answer',
+      //     'target':'sub',
+      //     'data': const JsonEncoder().convert(answer.toMap())
+      //   }));
+      //   break;
       case 'answer':
-        _log('pub. receive answer');
+        _log(' receive answer');
         Map<String,dynamic> answer = jsonDecode(msg['data']);
-        await _peerConnectionPub.setRemoteDescription(RTCSessionDescription(answer['sdp'], answer['type']));
-
+        await _peerConnection.setRemoteDescription(RTCSessionDescription(answer['sdp'], answer['type']));
+        var trans = await _peerConnection.getTransceivers();
+        for(var i=0;i<trans.length;i++){
+          var direct = await trans[i].getCurrentDirection();
+          debugPrint("trans[$i] == $direct");
+        }
         break;
       case 'candidate':
         debugPrint("receive candidate --> ${msg['target']}");
         Map<String,dynamic> parsed = jsonDecode(msg['data']);
         log(parsed.toString());
-        if(msg['target'] == 'sub'){
-          try{
-            //RTCSessionDescription? remoteDSP = await _peerConnectionSub.getRemoteDescription();
-            // if( remoteDSP == null){
-            //   debugPrint('getRemoteDescription is null');
-            //   return;
-            // }
-           // debugPrint(parsed['candidate']);
-            //参数是string类型的不要写null
-            debugPrint('sub addCandidate');
-            _peerConnectionSub.addCandidate(RTCIceCandidate(parsed['candidate'], '', 0));
-          }on Exception catch(e){
-            debugPrint('sub.addCandidate '+e.toString());
-          }
-        }else if(msg['target'] == 'pub'){
-          try{
-            //debugPrint(parsed['candidate']);
-            //参数是string类型的不要写null
-            debugPrint('pub addCandidate');
-            _peerConnectionPub.addCandidate(RTCIceCandidate(parsed['candidate'], '', 0));
-          }on Exception catch(e){
-            debugPrint('pub.addCandidate '+ e.toString());
-          }
+        try{
+          //debugPrint(parsed['candidate']);
+          //参数是string类型的不要写null
+          debugPrint('pub addCandidate');
+          _peerConnection.addCandidate(RTCIceCandidate(parsed['candidate'], '', 0));
+        }on Exception catch(e){
+          debugPrint('addCandidate '+ e.toString());
         }
         break;
       case 'join':
@@ -403,69 +413,64 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
   }
   void pttBeginHandle() async{
     //ptt_time = DateTime.now();
-    var senders = await _peerConnectionPub.getSenders();
-    debugPrint('before pub. senders len  = '+senders.length.toString());
+     var senders = await _peerConnection.getSenders();
+     debugPrint('before  senders len  = '+senders.length.toString());
 
     var localStream = await navigator.mediaDevices.getUserMedia({
       'audio':true,
       'video':false
     });
+    //localStream.dispose()
     var tracks = localStream.getAudioTracks();
     debugPrint('audio tracks len = '+tracks.length.toString());
 
     if(senders.isNotEmpty){
       //senders[0].track!.setMicrophoneMute(false);
       // senders[0].track!.enabled = true;
+     var trans = await _peerConnection.getTransceivers();
+     await trans[0].setDirection(TransceiverDirection.SendRecv);
+     await senders[0].replaceTrack(tracks[0]);
 
-       var trans = await _peerConnectionPub.getTransceivers();
-       await trans[0].setDirection(TransceiverDirection.SendRecv);
-       await senders[0].replaceTrack(tracks[0]);
-    }else{
-      try{
-        _log('pub.addTrack');
-        var sender = await _peerConnectionPub.addTrack(tracks[0],localStream);
-      } catch(e){
-        debugPrint('Pub.addTrack err'+e.toString());
-      }
+      //await _peerConnection.addTrack(tracks[0],localStream);
+
+     debugPrint('after  senders len = '+senders.length.toString());
     }
-
-
-    senders = await _peerConnectionPub.getSenders();
-    debugPrint('after pub. senders len = '+senders.length.toString());
   }
   void pttEndHandle() async{
-    // var senders = await _peerConnectionPub.getSenders();
+    // var senders = await _peerConnection.getSenders();
     // for (var element in senders) {
     //   if(element.track!=null){
-    //     _peerConnectionPub.removeTrack(element);
+    //     //await _peerConnection.removeTrack(element);
+    //     //element.track?.enabled = false;
+    //    // element.replaceTrack((_trackNull as MediaStreamTrack));
+    //     //element.track?.enableSpeakerphone(false);
+    //
     //     //element.track!.enableSpeakerphone(false);
     //     //element.track!.setMicrophoneMute(true);
     //     //element.track!.enabled = false;
-    //
     //   }
     // }
 
-    var trans = await _peerConnectionPub.getTransceivers();
-    var direction = await trans[0].getCurrentDirection();
-    debugPrint('===== CurrentDirection = $direction');
+    var trans = await _peerConnection.getTransceivers();
     await trans[0].setDirection(TransceiverDirection.RecvOnly);
+    //trans[0].stop();
     channel.sink.add(const JsonEncoder().convert({
       'event':'pttEnd',
     }));
   }
-  void _negotiationPub() async{
-    RTCSessionDescription offer = await _peerConnectionPub.createOffer({
+  void _negotiation() async{
+    RTCSessionDescription offer = await _peerConnection.createOffer({
       //'voiceActivityDetection':true,
       //'iceRestart':true
     });
-    await _peerConnectionPub.setLocalDescription(offer);
+    await _peerConnection.setLocalDescription(offer);
 
     var dataOffer = const JsonEncoder().convert({
       'event':'offer',
-      'target':'pub',
+      'target':'',
       'data': const JsonEncoder().convert(offer.toMap())
     });
-    _log('pub send offer len = ${dataOffer.length}');
+    _log(' send offer len = ${dataOffer.length}');
     //debugPrint('pub send offer => $dataOffer');
     channel.sink.add(dataOffer);
   }
