@@ -241,8 +241,8 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       // 'iceServers': [
       //   {'url': 'stun:stun.l.google.com:19302'},
       // ],
-      'sdpSemantics': 'unified-plan'
-      //'sdpSemantics': 'plan-b'
+      //'sdpSemantics': 'unified-plan'
+      'sdpSemantics': 'plan-b'
     };
 
 
@@ -301,18 +301,18 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       _log('peer.'+state.toString());
     };
 
-     _peerConnection.addTransceiver(
-        kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
-        init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
-    );
-     _peerConnection.addTransceiver(
-        kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
-        init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
-    );
-     _peerConnection.addTransceiver(
-        kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
-        init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
-    );
+    //  _peerConnection.addTransceiver(
+    //     kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+    //     init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
+    // );
+    //  _peerConnection.addTransceiver(
+    //     kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+    //     init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
+    // );
+    //  _peerConnection.addTransceiver(
+    //     kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+    //     init: RTCRtpTransceiverInit(direction:TransceiverDirection.SendRecv )
+    // );
 
 
     // try{
@@ -363,13 +363,14 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       //   break;
       case 'answer':
         _log(' receive answer');
+        _log(' receive answer len = ${msg['data'].length}');
         Map<String,dynamic> answer = jsonDecode(msg['data']);
         await _peerConnection.setRemoteDescription(RTCSessionDescription(answer['sdp'], answer['type']));
-        var trans = await _peerConnection.getTransceivers();
-        for(var i=0;i<trans.length;i++){
-          var direct = await trans[i].getCurrentDirection();
-          debugPrint("trans[$i] == $direct");
-        }
+        // var trans = await _peerConnection.getTransceivers();
+        // for(var i=0;i<trans.length;i++){
+        //   var direct = await trans[i].getCurrentDirection();
+        //   debugPrint("trans[$i] == $direct");
+        // }
         break;
       case 'candidate':
         debugPrint("receive candidate --> ${msg['target']}");
@@ -416,6 +417,9 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
      var senders = await _peerConnection.getSenders();
      debugPrint('before  senders len  = '+senders.length.toString());
 
+     var receivers = await _peerConnection.getReceivers();
+     debugPrint('before  receivers len  = '+receivers.length.toString());
+
     var localStream = await navigator.mediaDevices.getUserMedia({
       'audio':true,
       'video':false
@@ -423,36 +427,54 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
     //localStream.dispose()
     var tracks = localStream.getAudioTracks();
     debugPrint('audio tracks len = '+tracks.length.toString());
+    await _peerConnection.addTrack(tracks[0],localStream);
+    // if(senders.isNotEmpty){
+    //   debugPrint('before replaceTrack,  senders len = '+senders.length.toString());
+    //  await senders[0].replaceTrack(tracks[0]);
+    //
+    //   //await _peerConnection.addTrack(tracks[0],localStream);
+    //
+    // // debugPrint('after  senders len = '+senders.length.toString());
+    // }else{
 
-    if(senders.isNotEmpty){
-      //senders[0].track!.setMicrophoneMute(false);
-      // senders[0].track!.enabled = true;
-     var trans = await _peerConnection.getTransceivers();
-     await trans[0].setDirection(TransceiverDirection.SendRecv);
-     await senders[0].replaceTrack(tracks[0]);
-
-      //await _peerConnection.addTrack(tracks[0],localStream);
-
-     debugPrint('after  senders len = '+senders.length.toString());
-    }
+      //sender.replaceTrack(null);
+      // receivers = await _peerConnection.getReceivers();
+      // debugPrint('after addTrack, receivers len = '+receivers.length.toString());
+    // }
   }
   void pttEndHandle() async{
-    // var senders = await _peerConnection.getSenders();
-    // for (var element in senders) {
-    //   if(element.track!=null){
-    //     //await _peerConnection.removeTrack(element);
-    //     //element.track?.enabled = false;
-    //    // element.replaceTrack((_trackNull as MediaStreamTrack));
-    //     //element.track?.enableSpeakerphone(false);
+
+    var streams = _peerConnection.getLocalStreams();
+    debugPrint('streams len = '+streams.length.toString());
+    var receivers = await _peerConnection.getReceivers();
+    debugPrint('after  receivers len = '+receivers.length.toString());
+
+    // if(streams.isNotEmpty){
     //
-    //     //element.track!.enableSpeakerphone(false);
-    //     //element.track!.setMicrophoneMute(true);
-    //     //element.track!.enabled = false;
-    //   }
+    //  // await streams[0]!.dispose();
+    //   _peerConnection.removeStream((streams[0] as MediaStream));
+    //
     // }
 
-    var trans = await _peerConnection.getTransceivers();
-    await trans[0].setDirection(TransceiverDirection.RecvOnly);
+
+    var senders = await _peerConnection.getSenders();
+
+    for (var element in senders) {
+      if(element.track!=null){
+        await _peerConnection.removeTrack(element);
+
+        //element.track?.enabled = false;
+       // element.replaceTrack((_trackNull as MediaStreamTrack));
+        //element.track?.enableSpeakerphone(false);
+
+        //element.track!.enableSpeakerphone(false);
+        //element.track!.setMicrophoneMute(true);
+        //element.track!.enabled = false;
+      }
+    }
+
+    //var trans = await _peerConnection.getTransceivers();
+    //await trans[0].setDirection(TransceiverDirection.RecvOnly);
     //trans[0].stop();
     channel.sink.add(const JsonEncoder().convert({
       'event':'pttEnd',
@@ -471,7 +493,7 @@ class MyWebSocketClientState extends State<MyWebSocketClient>{
       'data': const JsonEncoder().convert(offer.toMap())
     });
     _log(' send offer len = ${dataOffer.length}');
-    //debugPrint('pub send offer => $dataOffer');
+    debugPrint(' send offer len = ${dataOffer.length}');
     channel.sink.add(dataOffer);
   }
   @override
